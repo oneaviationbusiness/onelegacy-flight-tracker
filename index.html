@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OLA Flight Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0b1d2a;
+      color: white;
+      text-align: center;
+    }
+    h1 {
+      margin-top: 20px;
+    }
+    table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      width: 90%;
+    }
+    th, td {
+      border: 1px solid #444;
+      padding: 10px;
+    }
+    th {
+      background: #1c3b57;
+    }
+    tr:nth-child(even) {
+      background: #122738;
+    }
+  </style>
+</head>
+<body>
+
+<h1>✈️ OLA Flight Tracker (VATSIM)</h1>
+<p>Tracking aircraft with "OLA" in callsign</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Callsign</th>
+      <th>Pilot ID</th>
+      <th>Latitude</th>
+      <th>Longitude</th>
+      <th>Altitude</th>
+      <th>Ground Speed</th>
+    </tr>
+  </thead>
+  <tbody id="flights"></tbody>
+</table>
+
+<script>
+async function fetchFlights() {
+  try {
+    const res = await fetch("https://data.vatsim.net/v3/vatsim-data.json");
+    const data = await res.json();
+
+    const pilots = data.pilots;
+
+    const filtered = pilots.filter(p =>
+      p.callsign && p.callsign.includes("OLA")
+    );
+
+    const table = document.getElementById("flights");
+    table.innerHTML = "";
+
+    filtered.forEach(p => {
+      const row = `
+        <tr>
+          <td>${p.callsign}</td>
+          <td>${p.cid}</td>
+          <td>${p.latitude}</td>
+          <td>${p.longitude}</td>
+          <td>${p.altitude} ft</td>
+          <td>${p.groundspeed} kt</td>
+        </tr>
+      `;
+      table.innerHTML += row;
+    });
+
+  } catch (err) {
+    console.error("Error fetching data:", err);
+  }
+}
+
+fetchFlights();
+setInterval(fetchFlights, 15000);
+</script>
+
+</body>
+</html>
