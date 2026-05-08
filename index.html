@@ -1,90 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>OLA Flight Tracker</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #0b1d2a;
-      color: white;
-      text-align: center;
-    }
-    h1 {
-      margin-top: 20px;
-    }
-    table {
-      margin: 20px auto;
-      border-collapse: collapse;
-      width: 90%;
-    }
-    th, td {
-      border: 1px solid #444;
-      padding: 10px;
-    }
-    th {
-      background: #1c3b57;
-    }
-    tr:nth-child(even) {
-      background: #122738;
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>OLA Flight Map</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<style>
+  body {
+    margin: 0;
+    background: #0b1d2a;
+    font-family: Arial, sans-serif;
+  }
+
+  #map {
+    height: 100vh;
+    width: 100%;
+  }
+
+  .popup {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+</style>
 </head>
+
 <body>
 
-<h1>✈️ OLA Flight Tracker (VATSIM)</h1>
-<p>Tracking aircraft with "OLA" in callsign</p>
+<div id="map"></div>
 
-<table>
-  <thead>
-    <tr>
-      <th>Callsign</th>
-      <th>Pilot ID</th>
-      <th>Latitude</th>
-      <th>Longitude</th>
-      <th>Altitude</th>
-      <th>Ground Speed</th>
-    </tr>
-  </thead>
-  <tbody id="flights"></tbody>
-</table>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-async function fetchFlights() {
-  try {
-    const res = await fetch("https://data.vatsim.net/v3/vatsim-data.json");
-    const data = await res.json();
+  // Create map
+  const map = L.map('map').setView([20, 0], 2);
 
-    const pilots = data.pilots;
+  // OpenStreetMap tiles
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18
+  }).addTo(map);
 
-    const filtered = pilots.filter(p =>
-      p.callsign && p.callsign.includes("OLA")
-    );
+  let markers = [];
 
-    const table = document.getElementById("flights");
-    table.innerHTML = "";
+  async function loadFlights() {
+    try {
+      const res = await fetch("https://data.vatsim.net/v3/vatsim-data.json");
+      const data = await res.json();
 
-    filtered.forEach(p => {
-      const row = `
-        <tr>
-          <td>${p.callsign}</td>
-          <td>${p.cid}</td>
-          <td>${p.latitude}</td>
-          <td>${p.longitude}</td>
-          <td>${p.altitude} ft</td>
-          <td>${p.groundspeed} kt</td>
-        </tr>
-      `;
-      table.innerHTML += row;
-    });
+      const pilots = data.pilots || [];
 
-  } catch (err) {
-    console.error("Error fetching data:", err);
+      // Clear old markers
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+
+      // Filter OLA callsigns
+      const olaFlights = pilots.filter(p =>
+        p.callsign && p.callsign.includes("OLA") &&
+        p.latitude && p.longitude
+      );
+
+      olaFlights.forEach(p => {
+        const marker = L.circleMarker([p.latitude, p.longitude], {
+          radius: 6,
+          color: "red",
+          fillOpacity: 0.8
+        }).addTo(map);
+
+        marker.bindPopup(`
+          <div class="popup">
+            <b>Callsign:</b> ${p.callsign}<br>
+            <b>Pilot ID:</b> ${p.cid}<br>
+            <b>Altitude:</b> ${p.altitude} ft<br>
+            <b>Speed:</b> ${p.groundspeed} kt<br>
+            <b>Lat:</b> ${p.latitude}<br>
+            <b>Lon:</b> ${p.longitude}
+          </div>
+        `);
+
+        markers.push(marker);
+      });
+
+    } catch (err) {
+      console.log("Error loading VATSIM data", err);
+    }
   }
-}
 
-fetchFlights();
-setInterval(fetchFlights, 15000);
+  loadFlights();
+  setInterval(loadFlights, 15000);
 </script>
 
 </body>
