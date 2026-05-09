@@ -1,7 +1,11 @@
+# Replace your ENTIRE `index.html` with this
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OLA Radar</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -15,13 +19,11 @@ html, body {
   font-family: Arial, sans-serif;
 }
 
-/* MAP */
 #map {
   width: 100%;
   height: 100%;
 }
 
-/* THEME BUTTON */
 #themeBtn {
   position: absolute;
   top: 80px;
@@ -29,7 +31,7 @@ html, body {
   z-index: 99999;
 
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
 
   padding: 12px 16px;
 
@@ -38,55 +40,53 @@ html, body {
 
   cursor: pointer;
 
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(10px);
 
-  background: rgba(20,20,20,0.8);
+  background: rgba(20,20,20,0.85);
   color: white;
 }
 
-/* FLIGHT CARD */
 #card {
   position: absolute;
   top: 20px;
   right: 20px;
 
-  width: 320px;
+  width: 330px;
 
   z-index: 99999;
 
   border-radius: 20px;
 
-  padding: 18px;
+  padding: 20px;
 
-  backdrop-filter: blur(14px);
-
-  background: rgba(10,15,20,0.88);
-
+  background: rgba(12,16,22,0.88);
   color: white;
 
-  display: none;
+  backdrop-filter: blur(16px);
 
-  box-shadow: 0 0 25px rgba(0,0,0,0.35);
+  box-shadow: 0 0 30px rgba(0,0,0,0.35);
+
+  display: none;
 }
 
 .callsign {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: bold;
   margin-bottom: 12px;
 }
 
-.status {
+.phase {
   display: inline-block;
 
-  background: #2196f3;
+  background: #1f8fff;
 
-  padding: 6px 12px;
+  padding: 7px 14px;
 
   border-radius: 999px;
 
   font-size: 13px;
 
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .row {
@@ -103,11 +103,15 @@ html, body {
   justify-content: center;
 }
 
-.aircraft-svg {
+.aircraft-icon {
   width: 32px;
   height: 32px;
 
-  filter: drop-shadow(0 0 3px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 0 4px rgba(0,0,0,0.6));
+}
+
+.leaflet-control-zoom {
+  margin-top: 10px !important;
 }
 </style>
 </head>
@@ -128,11 +132,10 @@ const map = L.map('map', {
   zoomControl: true
 }).setView([20, 0], 2);
 
-/* MAP THEMES */
+/* THEMES */
 const darkMap = L.tileLayer(
   'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
   {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
     maxZoom: 19
   }
 );
@@ -140,17 +143,18 @@ const darkMap = L.tileLayer(
 const lightMap = L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {
-    attribution: '&copy; OpenStreetMap contributors',
     maxZoom: 19
   }
 );
 
-darkMap.addTo(map);
-
 let darkMode = true;
+
+darkMap.addTo(map);
 
 /* THEME BUTTON */
 const themeBtn = document.getElementById("themeBtn");
+
+const card = document.getElementById("card");
 
 themeBtn.onclick = () => {
 
@@ -159,14 +163,13 @@ themeBtn.onclick = () => {
     map.removeLayer(darkMap);
     lightMap.addTo(map);
 
-    document.getElementById("card").style.background =
-      "rgba(255,255,255,0.92)";
-    document.getElementById("card").style.color = "black";
+    themeBtn.innerText = "Dark Mode";
 
     themeBtn.style.background = "white";
     themeBtn.style.color = "black";
 
-    themeBtn.innerText = "Dark Mode";
+    card.style.background = "rgba(255,255,255,0.92)";
+    card.style.color = "black";
 
     darkMode = false;
 
@@ -175,14 +178,13 @@ themeBtn.onclick = () => {
     map.removeLayer(lightMap);
     darkMap.addTo(map);
 
-    document.getElementById("card").style.background =
-      "rgba(10,15,20,0.88)";
-    document.getElementById("card").style.color = "white";
+    themeBtn.innerText = "Light Mode";
 
-    themeBtn.style.background = "rgba(20,20,20,0.8)";
+    themeBtn.style.background = "rgba(20,20,20,0.85)";
     themeBtn.style.color = "white";
 
-    themeBtn.innerText = "Light Mode";
+    card.style.background = "rgba(12,16,22,0.88)";
+    card.style.color = "white";
 
     darkMode = true;
   }
@@ -190,9 +192,9 @@ themeBtn.onclick = () => {
 
 /* STORAGE */
 const aircraft = {};
-let selected = null;
+let selectedAircraft = null;
 
-/* AIRCRAFT ICON */
+/* ICON */
 function createPlaneIcon(heading = 0) {
 
   return L.divIcon({
@@ -201,62 +203,99 @@ function createPlaneIcon(heading = 0) {
 
     html: `
       <div
-        class="aircraft-wrapper"
-        style="transform: rotate(${heading}deg);"
-      >
+      class="aircraft-wrapper"
+      style="transform: rotate(${heading}deg);">
 
       <svg
-        class="aircraft-svg"
-        viewBox="0 0 512 512"
-        xmlns="http://www.w3.org/2000/svg">
+      class="aircraft-icon"
+      viewBox="0 0 512 512"
+      xmlns="http://www.w3.org/2000/svg">
 
-        <path
-          fill="white"
-          stroke="black"
-          stroke-width="10"
-
-          d="
-          M256 0
-          L320 180
-          L500 220
-          L320 260
-          L256 512
-          L192 260
-          L12 220
-          L192 180
-          Z
-          "/>
+      <path
+      fill="white"
+      d="
+      M256 0
+      L330 180
+      L512 256
+      L330 300
+      L256 512
+      L182 300
+      L0 256
+      L182 180
+      Z
+      "/>
 
       </svg>
 
       </div>
     `,
 
-    iconSize: [34, 34],
-    iconAnchor: [17, 17]
+    iconSize: [34,34],
+    iconAnchor: [17,17]
   });
 }
 
-/* STATUS */
-function getStatus(p) {
+/* FLIGHT PHASES */
+function getFlightPhase(a) {
 
-  const alt = p.altitude;
-  const gs = p.groundspeed;
+  const gs = a.data.groundspeed;
+  const alt = a.data.altitude;
 
-  if (gs < 30) return "Boarding";
-  if (alt < 3000 && gs > 50) return "Takeoff";
-  if (alt > 3000 && alt < 28000) return "Climbing";
-  if (alt >= 28000) return "Cruise";
-  if (alt < 10000 && gs > 150) return "Descending";
-  if (alt < 3000 && gs < 180) return "Landing";
+  if (!a.cruiseAltitude) {
+    a.cruiseAltitude = alt;
+  }
+
+  if (alt > a.cruiseAltitude) {
+    a.cruiseAltitude = alt;
+  }
+
+  if (gs <= 5 && alt < 100) {
+    return "Boarding";
+  }
+
+  if (gs > 5 && gs < 40 && alt < 1000) {
+    return "Taxi";
+  }
+
+  if (gs >= 40 && alt < 4000) {
+    return "Takeoff";
+  }
+
+  if (alt >= 4000 && alt < a.cruiseAltitude - 1000) {
+    return "Climb";
+  }
+
+  if (
+    alt >= a.cruiseAltitude - 1000 &&
+    alt <= a.cruiseAltitude + 1000 &&
+    a.cruiseAltitude > 10000
+  ) {
+    return "Cruise";
+  }
+
+  if (alt <= a.cruiseAltitude - 8000 && alt > 10000) {
+    return "Descent";
+  }
+
+  if (alt <= 10000 && alt > 4000) {
+    return "Approach";
+  }
+
+  if (alt <= 4000 && gs > 60) {
+    return "Landing";
+  }
+
+  if (gs <= 60 && alt < 1000) {
+    return "Landed";
+  }
 
   return "Flying";
 }
 
-/* FLIGHT CARD */
-function updateCard(p) {
+/* CARD */
+function updateCard(a) {
 
-  const card = document.getElementById("card");
+  const p = a.data;
 
   card.style.display = "block";
 
@@ -266,54 +305,55 @@ function updateCard(p) {
       ${p.callsign}
     </div>
 
-    <div class="status">
-      ${getStatus(p)}
+    <div class="phase">
+      ${getFlightPhase(a)}
     </div>
 
-    <div class="row">
-      <b>Pilot ID:</b> ${p.cid}
-    </div>
+    <div class="row"><b>Pilot ID:</b> ${p.cid}</div>
 
-    <div class="row">
-      <b>Altitude:</b> ${p.altitude} ft
-    </div>
+    <div class="row"><b>Altitude:</b> ${p.altitude.toLocaleString()} ft</div>
 
-    <div class="row">
-      <b>Ground Speed:</b> ${p.groundspeed} kt
-    </div>
+    <div class="row"><b>Ground Speed:</b> ${p.groundspeed} kt</div>
 
-    <div class="row">
-      <b>Heading:</b> ${Math.round(p.heading)}°
-    </div>
+    <div class="row"><b>Heading:</b> ${Math.round(p.heading)}°</div>
 
-    <div class="row">
-      <b>Latitude:</b> ${p.latitude.toFixed(3)}
-    </div>
+    <div class="row"><b>Latitude:</b> ${p.latitude.toFixed(3)}</div>
 
-    <div class="row">
-      <b>Longitude:</b> ${p.longitude.toFixed(3)}
-    </div>
+    <div class="row"><b>Longitude:</b> ${p.longitude.toFixed(3)}</div>
+
+    <div class="row"><b>Cruise Alt:</b> ${Math.round(a.cruiseAltitude).toLocaleString()} ft</div>
   `;
 }
 
-/* SMOOTH MOVEMENT */
+/* PREDICTED MOVEMENT */
 function animateAircraft(a) {
 
-  a.currentLat +=
-    (a.targetLat - a.currentLat) * 0.03;
+  function tick() {
 
-  a.currentLng +=
-    (a.targetLng - a.currentLng) * 0.03;
+    /* PREDICT MOVEMENT */
+    const speed = a.data.groundspeed || 0;
+    const heading = (a.data.heading || 0) * Math.PI / 180;
 
-  a.marker.setLatLng([
-    a.currentLat,
-    a.currentLng
-  ]);
+    const distancePerFrame = speed * 0.0000008;
 
-  requestAnimationFrame(() => animateAircraft(a));
+    a.targetLat += Math.cos(heading) * distancePerFrame;
+    a.targetLng += Math.sin(heading) * distancePerFrame;
+
+    a.currentLat += (a.targetLat - a.currentLat) * 0.03;
+    a.currentLng += (a.targetLng - a.currentLng) * 0.03;
+
+    a.marker.setLatLng([
+      a.currentLat,
+      a.currentLng
+    ]);
+
+    requestAnimationFrame(tick);
+  }
+
+  tick();
 }
 
-/* FETCH VATSIM */
+/* FETCH */
 async function fetchFlights() {
 
   try {
@@ -333,7 +373,6 @@ async function fetchFlights() {
 
     pilots.forEach(p => {
 
-      /* NEW AIRCRAFT */
       if (!aircraft[p.cid]) {
 
         const marker = L.marker(
@@ -346,7 +385,7 @@ async function fetchFlights() {
         const trail = L.polyline(
           [[p.latitude, p.longitude]],
           {
-            color: "#42a5f5",
+            color: '#42a5f5',
             weight: 2
           }
         ).addTo(map);
@@ -364,31 +403,33 @@ async function fetchFlights() {
 
           history: [[p.latitude, p.longitude]],
 
-          data: p
+          data: p,
+
+          cruiseAltitude: p.altitude
         };
 
         animateAircraft(aircraft[p.cid]);
 
-        marker.on("click", () => {
-          selected = p.cid;
-          updateCard(aircraft[p.cid].data);
+        marker.on('click', () => {
+
+          selectedAircraft = p.cid;
+
+          updateCard(aircraft[p.cid]);
         });
 
       } else {
 
         const a = aircraft[p.cid];
 
+        a.data = p;
+
         a.targetLat = p.latitude;
         a.targetLng = p.longitude;
 
-        a.data = p;
-
-        /* ROTATE AIRCRAFT */
         a.marker.setIcon(
           createPlaneIcon(p.heading)
         );
 
-        /* SAVE FULL TRAIL */
         a.history.push([
           p.latitude,
           p.longitude
@@ -396,12 +437,10 @@ async function fetchFlights() {
 
         a.trail.setLatLngs(a.history);
 
-        /* LIVE CARD UPDATE */
-        if (selected === p.cid) {
-          updateCard(p);
+        if (selectedAircraft === p.cid) {
+          updateCard(a);
         }
       }
-
     });
 
   } catch(err) {
@@ -412,10 +451,17 @@ async function fetchFlights() {
 /* START */
 fetchFlights();
 
-/* FAST REFRESH */
-setInterval(fetchFlights, 2000);
+/* FASTEST SAFE REFRESH */
+setInterval(fetchFlights, 1000);
 
 </script>
 
 </body>
 </html>
+```
+
+# IMPORTANT
+
+You cannot get true millisecond updates from VATSIM because their public feed itself updates every few seconds.
+
+This version uses prediction + interpolation to make aircraft move continuously and smoothly between real VATSIM updates so it feels much closer to live radar movement.
