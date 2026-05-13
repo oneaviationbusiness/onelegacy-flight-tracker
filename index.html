@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OLA Radar</title>
+<title>OLA Unified Radar</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
@@ -21,28 +21,35 @@ html, body {
   height: 100%;
 }
 
-#themeBtn {
+/* TOP BAR */
+#topbar {
   position: absolute;
-  top: 80px;
-  left: 10px;
+  top: 10px;
+  left: 60px;
   z-index: 99999;
 
-  border: none;
-  border-radius: 14px;
+  display: flex;
+  gap: 10px;
+}
 
-  padding: 12px 16px;
+.btn {
+  border: none;
+  border-radius: 12px;
+
+  padding: 10px 14px;
 
   font-size: 14px;
   font-weight: bold;
 
   cursor: pointer;
 
-  backdrop-filter: blur(10px);
-
-  background: rgba(20,20,20,0.85);
+  background: rgba(20,20,20,0.82);
   color: white;
+
+  backdrop-filter: blur(10px);
 }
 
+/* CARD */
 #card {
   position: absolute;
   top: 20px;
@@ -54,12 +61,12 @@ html, body {
 
   border-radius: 20px;
 
-  padding: 20px;
+  padding: 18px;
 
-  background: rgba(12,16,22,0.88);
+  background: rgba(10,15,20,0.9);
   color: white;
 
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(14px);
 
   box-shadow: 0 0 30px rgba(0,0,0,0.35);
 
@@ -72,18 +79,26 @@ html, body {
   margin-bottom: 12px;
 }
 
-.phase {
+.network {
   display: inline-block;
 
-  background: #1f8fff;
-
-  padding: 7px 14px;
+  padding: 6px 12px;
 
   border-radius: 999px;
 
   font-size: 13px;
 
   margin-bottom: 16px;
+}
+
+.vatsim {
+  background: #000;
+  color: white;
+}
+
+.volanta {
+  background: #2196f3;
+  color: white;
 }
 
 .row {
@@ -106,16 +121,16 @@ html, body {
 
   filter: drop-shadow(0 0 4px rgba(0,0,0,0.6));
 }
-
-.leaflet-control-zoom {
-  margin-top: 10px !important;
-}
 </style>
 </head>
 
 <body>
 
-<button id="themeBtn">Light Mode</button>
+<div id="topbar">
+  <button class="btn" id="themeBtn">
+    Light Mode
+  </button>
+</div>
 
 <div id="card"></div>
 
@@ -125,48 +140,33 @@ html, body {
 
 <script>
 /* MAP */
-const map = L.map('map', {
-  zoomControl: true
-}).setView([20, 0], 2);
+const map = L.map('map').setView([20, 0], 2);
 
 /* THEMES */
 const darkMap = L.tileLayer(
   'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  {
-    maxZoom: 19
-  }
+  { maxZoom: 19 }
 );
 
 const lightMap = L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  {
-    maxZoom: 19
-  }
+  { maxZoom: 19 }
 );
-
-let darkMode = true;
 
 darkMap.addTo(map);
 
-/* THEME BUTTON */
-const themeBtn = document.getElementById("themeBtn");
+let darkMode = true;
 
-const card = document.getElementById("card");
-
-themeBtn.onclick = () => {
+/* THEME */
+document.getElementById("themeBtn").onclick = () => {
 
   if (darkMode) {
 
     map.removeLayer(darkMap);
     lightMap.addTo(map);
 
-    themeBtn.innerText = "Dark Mode";
-
-    themeBtn.style.background = "white";
-    themeBtn.style.color = "black";
-
-    card.style.background = "rgba(255,255,255,0.92)";
-    card.style.color = "black";
+    document.getElementById("themeBtn").innerText =
+      "Dark Mode";
 
     darkMode = false;
 
@@ -175,13 +175,8 @@ themeBtn.onclick = () => {
     map.removeLayer(lightMap);
     darkMap.addTo(map);
 
-    themeBtn.innerText = "Light Mode";
-
-    themeBtn.style.background = "rgba(20,20,20,0.85)";
-    themeBtn.style.color = "white";
-
-    card.style.background = "rgba(12,16,22,0.88)";
-    card.style.color = "white";
+    document.getElementById("themeBtn").innerText =
+      "Light Mode";
 
     darkMode = true;
   }
@@ -189,10 +184,10 @@ themeBtn.onclick = () => {
 
 /* STORAGE */
 const aircraft = {};
-let selectedAircraft = null;
+let selected = null;
 
 /* ICON */
-function createPlaneIcon(heading = 0) {
+function createPlaneIcon(color, heading = 0) {
 
   return L.divIcon({
 
@@ -209,7 +204,7 @@ function createPlaneIcon(heading = 0) {
       xmlns="http://www.w3.org/2000/svg">
 
       <path
-      fill="white"
+      fill="${color}"
       d="
       M256 0
       L330 180
@@ -232,112 +227,66 @@ function createPlaneIcon(heading = 0) {
   });
 }
 
-/* FLIGHT PHASES */
-function getFlightPhase(a) {
-
-  const gs = a.data.groundspeed;
-  const alt = a.data.altitude;
-
-  if (!a.cruiseAltitude) {
-    a.cruiseAltitude = alt;
-  }
-
-  if (alt > a.cruiseAltitude) {
-    a.cruiseAltitude = alt;
-  }
-
-  if (gs <= 5 && alt < 100) {
-    return "Boarding";
-  }
-
-  if (gs > 5 && gs < 40 && alt < 1000) {
-    return "Taxi";
-  }
-
-  if (gs >= 40 && alt < 4000) {
-    return "Takeoff";
-  }
-
-  if (alt >= 4000 && alt < a.cruiseAltitude - 1000) {
-    return "Climb";
-  }
-
-  if (
-    alt >= a.cruiseAltitude - 1000 &&
-    alt <= a.cruiseAltitude + 1000 &&
-    a.cruiseAltitude > 10000
-  ) {
-    return "Cruise";
-  }
-
-  if (alt <= a.cruiseAltitude - 8000 && alt > 10000) {
-    return "Descent";
-  }
-
-  if (alt <= 10000 && alt > 4000) {
-    return "Approach";
-  }
-
-  if (alt <= 4000 && gs > 60) {
-    return "Landing";
-  }
-
-  if (gs <= 60 && alt < 1000) {
-    return "Landed";
-  }
-
-  return "Flying";
-}
-
 /* CARD */
 function updateCard(a) {
 
   const p = a.data;
 
-  card.style.display = "block";
+  const networkClass =
+    a.network === "VOLANTA"
+    ? "volanta"
+    : "vatsim";
 
-  card.innerHTML = `
+  document.getElementById("card").style.display =
+    "block";
+
+  document.getElementById("card").innerHTML = `
 
     <div class="callsign">
       ${p.callsign}
     </div>
 
-    <div class="phase">
-      ${getFlightPhase(a)}
+    <div class="network ${networkClass}">
+      ${a.network}
     </div>
 
-    <div class="row"><b>Pilot ID:</b> ${p.cid}</div>
+    <div class="row">
+      <b>Altitude:</b>
+      ${Math.round(p.altitude)} ft
+    </div>
 
-    <div class="row"><b>Altitude:</b> ${p.altitude.toLocaleString()} ft</div>
+    <div class="row">
+      <b>Speed:</b>
+      ${Math.round(p.groundspeed)} kt
+    </div>
 
-    <div class="row"><b>Ground Speed:</b> ${p.groundspeed} kt</div>
+    <div class="row">
+      <b>Heading:</b>
+      ${Math.round(p.heading)}°
+    </div>
 
-    <div class="row"><b>Heading:</b> ${Math.round(p.heading)}°</div>
+    <div class="row">
+      <b>Latitude:</b>
+      ${p.latitude.toFixed(3)}
+    </div>
 
-    <div class="row"><b>Latitude:</b> ${p.latitude.toFixed(3)}</div>
-
-    <div class="row"><b>Longitude:</b> ${p.longitude.toFixed(3)}</div>
-
-    <div class="row"><b>Cruise Alt:</b> ${Math.round(a.cruiseAltitude).toLocaleString()} ft</div>
+    <div class="row">
+      <b>Longitude:</b>
+      ${p.longitude.toFixed(3)}
+    </div>
   `;
 }
 
-/* PREDICTED MOVEMENT */
+/* SMOOTH */
 function animateAircraft(a) {
 
   function tick() {
 
-    /* PREDICT MOVEMENT */
-    const speed = a.data.groundspeed || 0;
-    const heading = (a.data.heading || 0) * Math.PI / 180;
+    a.currentLat +=
+      (a.targetLat - a.currentLat) * 0.03;
 
-    const distancePerFrame = speed * 0.0000008;
-
-    a.targetLat += Math.cos(heading) * distancePerFrame;
-    a.targetLng += Math.sin(heading) * distancePerFrame;
-
-    a.currentLat += (a.targetLat - a.currentLat) * 0.03;
-    a.currentLng += (a.targetLng - a.currentLng) * 0.03;
+    a.currentLng +=
+      (a.targetLng - a.currentLng) * 0.03;
 
     a.marker.setLatLng([
       a.currentLat,
@@ -350,8 +299,87 @@ function animateAircraft(a) {
   tick();
 }
 
-/* FETCH */
-async function fetchFlights() {
+/* ADD AIRCRAFT */
+function addAircraft(p, network, color) {
+
+  const id =
+    network + "_" + p.callsign;
+
+  if (!aircraft[id]) {
+
+    const marker = L.marker(
+      [p.latitude, p.longitude],
+      {
+        icon: createPlaneIcon(
+          color,
+          p.heading
+        )
+      }
+    ).addTo(map);
+
+    const trail = L.polyline(
+      [[p.latitude, p.longitude]],
+      {
+        color,
+        weight: 2
+      }
+    ).addTo(map);
+
+    aircraft[id] = {
+
+      marker,
+      trail,
+
+      currentLat: p.latitude,
+      currentLng: p.longitude,
+
+      targetLat: p.latitude,
+      targetLng: p.longitude,
+
+      history: [[p.latitude, p.longitude]],
+
+      data: p,
+
+      network
+    };
+
+    animateAircraft(aircraft[id]);
+
+    marker.on("click", () => {
+
+      selected = id;
+
+      updateCard(aircraft[id]);
+    });
+
+  } else {
+
+    const a = aircraft[id];
+
+    a.data = p;
+
+    a.targetLat = p.latitude;
+    a.targetLng = p.longitude;
+
+    a.marker.setIcon(
+      createPlaneIcon(color, p.heading)
+    );
+
+    a.history.push([
+      p.latitude,
+      p.longitude
+    ]);
+
+    a.trail.setLatLngs(a.history);
+
+    if (selected === id) {
+      updateCard(a);
+    }
+  }
+}
+
+/* VATSIM */
+async function fetchVatsim() {
 
   try {
 
@@ -363,93 +391,94 @@ async function fetchFlights() {
 
     const pilots = data.pilots.filter(p =>
       p.callsign &&
-      p.callsign.includes("OLA") &&
-      p.latitude &&
-      p.longitude
+      p.callsign.includes("OLA")
     );
 
     pilots.forEach(p => {
 
-      if (!aircraft[p.cid]) {
+      addAircraft(
+        {
+          callsign: p.callsign,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          altitude: p.altitude,
+          groundspeed: p.groundspeed,
+          heading: p.heading
+        },
+        "VATSIM",
+        "black"
+      );
 
-        const marker = L.marker(
-          [p.latitude, p.longitude],
-          {
-            icon: createPlaneIcon(p.heading)
-          }
-        ).addTo(map);
-
-        const trail = L.polyline(
-          [[p.latitude, p.longitude]],
-          {
-            color: '#42a5f5',
-            weight: 2
-          }
-        ).addTo(map);
-
-        aircraft[p.cid] = {
-
-          marker,
-          trail,
-
-          currentLat: p.latitude,
-          currentLng: p.longitude,
-
-          targetLat: p.latitude,
-          targetLng: p.longitude,
-
-          history: [[p.latitude, p.longitude]],
-
-          data: p,
-
-          cruiseAltitude: p.altitude
-        };
-
-        animateAircraft(aircraft[p.cid]);
-
-        marker.on('click', () => {
-
-          selectedAircraft = p.cid;
-
-          updateCard(aircraft[p.cid]);
-        });
-
-      } else {
-
-        const a = aircraft[p.cid];
-
-        a.data = p;
-
-        a.targetLat = p.latitude;
-        a.targetLng = p.longitude;
-
-        a.marker.setIcon(
-          createPlaneIcon(p.heading)
-        );
-
-        a.history.push([
-          p.latitude,
-          p.longitude
-        ]);
-
-        a.trail.setLatLngs(a.history);
-
-        if (selectedAircraft === p.cid) {
-          updateCard(a);
-        }
-      }
     });
 
   } catch(err) {
-    console.log(err);
+    console.log("VATSIM ERROR", err);
+  }
+}
+
+/* VOLANTA */
+/*
+IMPORTANT:
+
+THIS IS AN EXPERIMENTAL ATTEMPT.
+
+Volanta does NOT provide
+a documented public live API.
+
+This endpoint may NOT work,
+may require auth,
+or may change anytime.
+
+But you asked to try it.
+*/
+
+async function fetchVolanta() {
+
+  try {
+
+    const res = await fetch(
+      "https://api.volanta.app/public/flights"
+    );
+
+    const data = await res.json();
+
+    const flights = data.filter(f =>
+      f.callsign &&
+      f.callsign.includes("OLA")
+    );
+
+    flights.forEach(f => {
+
+      addAircraft(
+        {
+          callsign: f.callsign,
+          latitude: f.latitude,
+          longitude: f.longitude,
+          altitude: f.altitude,
+          groundspeed: f.groundspeed,
+          heading: f.heading
+        },
+        "VOLANTA",
+        "#2196f3"
+      );
+
+    });
+
+  } catch(err) {
+
+    console.log(
+      "VOLANTA endpoint unavailable",
+      err
+    );
   }
 }
 
 /* START */
-fetchFlights();
+fetchVatsim();
+fetchVolanta();
 
-/* FASTEST SAFE REFRESH */
-setInterval(fetchFlights, 1000);
+setInterval(fetchVatsim, 2000);
+setInterval(fetchVolanta, 2000);
 
 </script>
 
